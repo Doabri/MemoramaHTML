@@ -1,0 +1,392 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Memorama HTML</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+    <header>
+        <h1>Memorama de diseño web</h1>
+        <p class="subtitulo">Encuentra los pares (Termino -> Definicion)</p>
+    </header>
+    <div class="contenedor-principal">
+        <div class="panel-estadisticas">
+            <div class="estadistica">
+                <h3>Tiempo</h3>
+                <div class="valor" id="tiempo">00:00</div>
+            </div>
+            <div class="estadistica">
+                <h3>Errores</h3>
+                <div class="valor" id="errores">0</div>
+            </div>
+            <div class="estadistica">
+                <h3>Pares Encontrados</h3>
+                <div class="valor" id="pares">0/12</div>
+            </div>
+        </div>
+
+
+        <div class="tablero-contenedor">
+            <div class="tablero" id="tablero">
+
+            </div>
+        </div>
+        <div class="botones">
+            <button class="btn" id="btn-iniciar">Iniciar</button>
+            <button class="btn" id="btn-reiniciar" disabled>Reiniciar juego</button>
+            <button class="btn" id="btn-resultados" disabled>Resultados</button>
+        </div>
+
+        <div class="instrucciones">
+            <strong>Intrucciones:</strong><br />
+            1.Haz clic en "iniciar" para jugar<br />
+            2. Junta el termino HTML con su definicion<br />
+            3. El cronometro comenzara cuando hagas clic <br />
+            4. No hya prisa solo intenta acabar el juego el menor tiempo posible<br />
+            Suerte
+        </div>
+    </div>
+    <script>
+        let cartas = [];
+        let cartaVolteada1 = null;
+        let cartaVolteada2 = null;
+        let bloqueado = false;
+        let tiempo = 0;
+        let errores = 0;
+        let paresEncontrados = 0;
+        let totalPares = 12;
+        let timerInterval = null;
+        let juegoIniciado = false;
+        let idResultado = null;
+
+        const tablero = document.getElementById('tablero');
+        const tiempoElement = document.getElementById('tiempo');
+        const erroresElement = document.getElementById('errores');
+        const paresElement = document.getElementById('pares');
+        const btnIniciar = document.getElementById('btn-iniciar');
+        const btnReiniciar = document.getElementById('btn-reiniciar');
+        const btnResultados = document.getElementById('btn-resultados');
+
+        function formatearTiempo(segundos) {
+            const minutos = Math.floor(segundos / 60);
+            const segundosRestantes = segundos % 60;
+            return `${minutos.toString().padStart(2, '0')}:${segundosRestantes.toString().padStart(2, '0')}`;
+        }
+
+        function actualizarEstadisticas() {
+            tiempoElement.textContent = formatearTiempo(tiempo);
+            erroresElement.textContent = errores;
+            paresElement.textContent = `${paresEncontrados}/${totalPares}`;
+        }
+
+        function iniciarCronometro() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            tiempo = 0;
+            timerInterval = setInterval(function () {
+                tiempo++;
+                actualizarEstadisticas();
+            }, 1000);
+        }
+
+        function detenerCronometro() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function crearCartaHTML(carta) {
+            const div = document.createElement('div');
+            div.className = 'carta';
+            div.dataset.id = carta.cardId;
+            div.dataset.conceptoId = carta.conceptId;
+            div.dataset.tipo = carta.tipo;
+
+            const frente = document.createElement('div');
+            frente.className = 'frente';
+            frente.textContent = '?';
+
+            const reverso = document.createElement('div');
+            reverso.className = 'reverso';
+
+            if (carta.tipo === 'termino') {
+                reverso.textContent = carta.contenido;
+                reverso.style.fontSize = '1.2em';
+                reverso.style.fontWeight = 'bold';
+            } else {
+                reverso.textContent = carta.contenido;
+                reverso.style.fontSize = '0.9em';
+            }
+
+            div.appendChild(frente);
+            div.appendChild(reverso);
+
+            return div;
+        }
+
+        function voltearCarta(cartaElement) {
+            if (bloqueado ||
+                cartaElement.classList.contains('volteada') ||
+                cartaElement.classList.contains('encontrada') ||
+                !juegoIniciado) {
+                return;
+            }
+
+            cartaElement.classList.add('volteada');
+
+            if (!cartaVolteada1) {
+                cartaVolteada1 = cartaElement;
+            } else if (!cartaVolteada2 && cartaElement !== cartaVolteada1) {
+                cartaVolteada2 = cartaElement;
+                verificarPar();
+            }
+        }
+
+        function verificarPar() {
+            bloqueado = true;
+
+            const id1 = cartaVolteada1.dataset.conceptoId;
+            const id2 = cartaVolteada2.dataset.conceptoId;
+            const tipo1 = cartaVolteada1.dataset.tipo;
+            const tipo2 = cartaVolteada2.dataset.tipo;
+
+            if (id1 === id2 && tipo1 !== tipo2) {
+                setTimeout(function () {
+                    cartaVolteada1.classList.add('encontrada');
+                    cartaVolteada2.classList.add('encontrada');
+                    cartaVolteada1.classList.remove('volteada');
+                    cartaVolteada2.classList.remove('volteada');
+
+                    cartaVolteada1 = null;
+                    cartaVolteada2 = null;
+                    bloqueado = false;
+
+                    paresEncontrados++;
+                    actualizarEstadisticas();
+
+                    if (paresEncontrados === totalPares) {
+                        finalizarJuego();
+                    }
+                }, 500);
+            } else {
+                errores++;
+                actualizarEstadisticas();
+
+                setTimeout(function () {
+                    cartaVolteada1.classList.remove('volteada');
+                    cartaVolteada2.classList.remove('volteada');
+
+                    cartaVolteada1 = null;
+                    cartaVolteada2 = null;
+                    bloqueado = false;
+                }, 1000);
+            }
+        }
+
+        async function obtenerCartas() {
+            try {
+                const response = await fetch('/api/memorama/cartas');
+
+                if (!response.ok) {
+                    throw new Error('Error al obtener cartas');
+                }
+
+                const data = await response.json();
+                return data.Cartas || [];
+            } catch (error) {
+                console.error('Error:', error);
+                return crearCartasEjemplo();
+            }
+        }
+
+        function crearCartasEjemplo() {
+            const conceptosEjemplo = [
+                { id: 1, termino: '<html>', definicion: 'Elemento raíz del documento HTML' },
+                { id: 2, termino: '<head>', definicion: 'Contiene metadatos del documento' },
+                { id: 3, termino: '<body>', definicion: 'Contiene el contenido visible' },
+                { id: 4, termino: '<h1>', definicion: 'Encabezado de nivel 1' },
+                { id: 5, termino: '<p>', definicion: 'Define un párrafo' },
+                { id: 6, termino: '<a>', definicion: 'Crea un hipervínculo' }
+            ];
+
+            const cartasEjemplo = [];
+
+            conceptosEjemplo.forEach(function (concepto) {
+                cartasEjemplo.push({
+                    conceptId: concepto.id,
+                    cardId: `T_${concepto.id}`,
+                    tipo: 'termino',
+                    contenido: concepto.termino,
+                    categoria: 'ejemplo'
+                });
+
+                cartasEjemplo.push({
+                    conceptId: concepto.id,
+                    cardId: `D_${concepto.id}`,
+                    tipo: 'definicion',
+                    contenido: concepto.definicion,
+                    categoria: 'ejemplo'
+                });
+            });
+
+            return cartasEjemplo.sort(function () { return Math.random() - 0.5; });
+        }
+
+        async function inicializarTablero() {
+            tablero.innerHTML = '';
+            const mensajeCarga = document.createElement('div');
+            mensajeCarga.className = 'mensaje-carga';
+            mensajeCarga.textContent = 'Cargando cartas...';
+            tablero.appendChild(mensajeCarga);
+            cartas = await obtenerCartas();
+            tablero.innerHTML = '';
+
+            if (!cartas || cartas.length === 0) {
+                console.error('No se pudieron cargar cartas');
+                cartas = crearCartasEjemplo();
+            }
+
+            totalPares = cartas.length / 2;
+            paresElement.textContent = `0/${totalPares}`;
+
+            const cartasMezcladas = [...cartas].sort(function () { return Math.random() - 0.5; });
+
+            cartasMezcladas.forEach(function (carta) {
+                const cartaElement = crearCartaHTML(carta);
+                tablero.appendChild(cartaElement);
+            });
+        }
+
+        async function iniciarJuego() {
+            if (!juegoIniciado) {
+                tablero.innerHTML = '';
+                tablero.innerHTML = '<div class="mensaje-carga">Cargando cartas...</div>';
+                await inicializarTablero();
+
+                tiempo = 0;
+                errores = 0;
+                paresEncontrados = 0;
+                btnIniciar.disabled = true;
+                btnReiniciar.disabled = false;
+                btnResultados.disabled = true;
+                iniciarCronometro();
+                juegoIniciado = true;
+                actualizarEstadisticas();
+            }
+        }
+
+        function reiniciarJuego() {
+            detenerCronometro();
+            juegoIniciado = false;
+            cartaVolteada1 = null;
+            cartaVolteada2 = null;
+            bloqueado = false;
+            btnIniciar.disabled = false;
+            btnReiniciar.disabled = true;
+            btnResultados.disabled = true;
+            tablero.innerHTML = '';
+            tiempo = 0;
+            errores = 0;
+            paresEncontrados = 0;
+            totalPares = 12; 
+            actualizarEstadisticas();
+        }
+
+        async function finalizarJuego() {
+            detenerCronometro();
+            if (paresEncontrados !== totalPares) {
+                console.error('Error: el juego no está completo');
+                return;
+            }
+
+            juegoIniciado = false;
+            btnResultados.disabled = false;
+            const conceptosUsados = [];
+            const cartasElementos = document.querySelectorAll('.carta');
+
+            cartasElementos.forEach(function (carta) {
+                const conceptoId = parseInt(carta.dataset.conceptoId);
+                if (!conceptosUsados.includes(conceptoId)) {
+                    conceptosUsados.push(conceptoId);
+                }
+            });
+
+            try {
+                const resultadoDTO = {
+                    idUsuario: null,
+                    tiempoSegundos: tiempo,
+                    errores: errores,
+                    paresEncontrados: paresEncontrados,
+                    totalPares: totalPares,
+                    categoria: 'HTML',
+                    conceptosUsados: conceptosUsados
+                };
+
+                const response = await fetch('/api/memorama/guardar-resultado', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(resultadoDTO)
+                });
+
+                if (response.ok) {
+                    const resultadoGuardado = await response.json();
+                    console.log('Resultados guardados exitosamente:', resultadoGuardado);
+
+                    sessionStorage.setItem('ultimoResultadoId', resultadoGuardado.idResultado);
+                    sessionStorage.setItem('tiempoJuego', tiempo.toString());
+                    sessionStorage.setItem('erroresJuego', errores.toString());
+                    sessionStorage.setItem('paresEncontrados', paresEncontrados.toString());
+                    sessionStorage.setItem('totalPares', totalPares.toString());
+                    sessionStorage.setItem('conceptosUsados', JSON.stringify(conceptosUsados));
+                    sessionStorage.setItem('puntuacionJuego', resultadoGuardado.puntuacion.toString());
+
+                } else {
+                    console.error('Error en la respuesta del servidor');
+                    sessionStorage.setItem('tiempoJuego', tiempo.toString());
+                    sessionStorage.setItem('erroresJuego', errores.toString());
+                    sessionStorage.setItem('paresEncontrados', paresEncontrados.toString());
+                    sessionStorage.setItem('totalPares', totalPares.toString());
+                    sessionStorage.setItem('conceptosUsados', JSON.stringify(conceptosUsados));
+                }
+            } catch (error) {
+                console.error('Error al guardar resultados:', error);
+                sessionStorage.setItem('tiempoJuego', tiempo.toString());
+                sessionStorage.setItem('erroresJuego', errores.toString());
+                sessionStorage.setItem('paresEncontrados', paresEncontrados.toString());
+                sessionStorage.setItem('totalPares', totalPares.toString());
+                sessionStorage.setItem('conceptosUsados', JSON.stringify(conceptosUsados));
+            }
+        }
+
+        function irAResultados() {
+            sessionStorage.setItem('tiempoJuego', tiempo.toString());
+            sessionStorage.setItem('erroresJuego', errores.toString());
+            sessionStorage.setItem('paresEncontrados', paresEncontrados.toString());
+            sessionStorage.setItem('totalPares', totalPares.toString());
+            window.location.href = 'resultados.html';
+        }
+
+        btnIniciar.addEventListener('click', iniciarJuego);
+        btnReiniciar.addEventListener('click', reiniciarJuego);
+        btnResultados.addEventListener('click', irAResultados);
+
+        tablero.addEventListener('click', function (event) {
+            const cartaElement = event.target.closest('.carta');
+            if (cartaElement) {
+                voltearCarta(cartaElement);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            actualizarEstadisticas();
+            tablero.innerHTML = '';
+        });
+    </script>
+
+</body>
+</html>
+

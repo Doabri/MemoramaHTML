@@ -1,0 +1,201 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Resultados: Memorama HTML</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+    <header>Felicidades completaste el memorama</header>
+    <div class="contenedor-principal">
+        <div class="felicidades">!Buen trabajo!</div>
+
+        <div class="resultados">
+            <h2>Tus Resultados</h2>
+
+            <div class="resultado-item">
+                <h3>Tiempo Total</h3>
+                <div class="valor" id="resultado-tiempo">--:--</div>
+            </div>
+
+            <div class="resultado-item">
+                <h3>Errores </h3>
+                <div class="valor" id="resultado-errores">0</div>
+            </div>
+
+            <div class="resultado-item">
+                <h3> Calificación</h3>
+                <div class="valor" id="resultado-calificacion">...</div>
+            </div>
+
+            <div class="resultado-item">
+                <h3>Fecha del Juego</h3>
+                <div class="valor" id="resultado-fecha">Cargando...</div>
+            </div>
+        </div>
+        <div class="panel-estadisticas">
+            <div class="estadistica">
+                <h3>Tiempo Promedio por Par</h3>
+                <div class="valor" id="tiempo-promedio">--s</div>
+            </div>
+            <div class="estadistica">
+                <h3>Eficiencia</h3>
+                <div class="valor" id="eficiencia">--%</div>
+            </div>
+        </div>
+
+        <div class="mensaje">
+            <strong>¡Has aprendido conceptos importantes de HTML!</strong><br><br>
+            Recuerda practicar estos conceptos:<br>
+            • Etiquetas HTML básicas<br>
+            • Atributos importantes<br>
+            • Estructura de un documento<br>
+            • Elementos semánticos
+        </div>
+
+        <div class="botones">
+            <button class="btn" onclick="window.location.href='index.html'">
+                Jugar Otra Vez
+            </button>
+        </div>
+
+        <div class="mensaje">
+            <strong> Conceptos que acabas de practicar:</strong><br>
+            <div id="lista-conceptos">
+                <!-- Se cargará con JavaScript -->
+            </div>
+        </div>
+    </div>
+    <script>
+        const resultadoTiempo = document.getElementById('resultado-tiempo');
+        const resultadoErrores = document.getElementById('resultado-errores');
+        const resultadoCalificacion = document.getElementById('resultado-calificacion');
+        const resultadoFecha = document.getElementById('resultado-fecha');
+        const tiempoPromedio = document.getElementById('tiempo-promedio');
+        const eficiencia = document.getElementById('eficiencia');
+        const listaConceptos = document.getElementById('lista-conceptos');
+
+        function formatearTiempo(segundos) {
+            const minutos = Math.floor(segundos / 60);
+            const segs = segundos % 60;
+            return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+        }
+
+        function calcularCalificacion(tiempoSegundos, errores, paresEncontrados) {
+            let puntuacion = 100;
+            puntuacion -= Math.min(tiempoSegundos * 0.5, 50);
+            puntuacion -= errores * 5;
+            puntuacion += paresEncontrados * 2;
+
+            return Math.max(0, Math.min(100, Math.round(puntuacion)));
+        }
+
+        async function cargarResultados() {
+            const tiempoJuego = sessionStorage.getItem('tiempoJuego');
+            const erroresJuego = sessionStorage.getItem('erroresJuego');
+            const paresEncontrados = sessionStorage.getItem('paresEncontrados') || 12;
+            const totalPares = sessionStorage.getItem('totalPares') || 12;
+
+            if (!tiempoJuego || !erroresJuego) {
+                mostrarResultadosPorDefecto();
+                return;
+            }
+
+            const tiempo = parseInt(tiempoJuego);
+            const errores = parseInt(erroresJuego);
+            const pares = parseInt(paresEncontrados);
+            const total = parseInt(totalPares);
+            resultadoTiempo.textContent = formatearTiempo(tiempo);
+            resultadoErrores.textContent = errores;
+            resultadoFecha.textContent = new Date().toLocaleDateString();
+            const calificacion = calcularCalificacion(tiempo, errores, pares);
+            resultadoCalificacion.textContent = `${calificacion}/100`;
+            const tiempoPromedioValor = pares > 0 ? (tiempo / pares).toFixed(1) : '0';
+            tiempoPromedio.textContent = `${tiempoPromedioValor}s`;
+            const eficienciaValor = total > 0 ? Math.round((pares / total) * 100) : 0;
+            eficiencia.textContent = `${eficienciaValor}%`;
+            await cargarConceptos();
+        }
+
+        async function cargarConceptos() {
+            try {
+                const conceptosUsadosJSON = sessionStorage.getItem('conceptosUsados');
+
+                if (conceptosUsadosJSON) {
+                    const conceptosIds = JSON.parse(conceptosUsadosJSON);
+
+                    if (conceptosIds && conceptosIds.length > 0) {
+                        await obtenerConceptosDeAPI(conceptosIds);
+                    } else {
+                        mostrarConceptosEjemplo();
+                    }
+                } else {
+                    mostrarConceptosEjemplo();
+                }
+            } catch (error) {
+                console.error('Error al cargar conceptos:', error);
+                mostrarConceptosEjemplo();
+            }
+        }
+
+        async function obtenerConceptosDeAPI(ids) {
+            try {
+                const response = await fetch('/api/conceptos');
+
+                if (response.ok) {
+                    const todosConceptos = await response.json();
+                    const conceptosFiltrados = todosConceptos.filter(concepto =>
+                        ids.includes(concepto.idConcepto)
+                    );
+
+                    if (conceptosFiltrados.length > 0) {
+                        mostrarConceptos(conceptosFiltrados);
+                    } else {
+                        mostrarConceptosEjemplo();
+                    }
+                } else {
+                    mostrarConceptosEjemplo();
+                }
+            } catch (error) {
+                console.error('Error en la solicitud:', error);
+                mostrarConceptosEjemplo();
+            }
+        }
+
+        function mostrarConceptos(conceptos) {
+            listaConceptos.innerHTML = '';
+            const ul = document.createElement('ul');
+            ul.style.listStyleType = 'none';
+            ul.style.paddingLeft = '0';
+
+            conceptos.forEach(concepto => {
+                const li = document.createElement('li');
+                li.style.marginBottom = '10px';
+                li.style.padding = '8px';
+                li.style.backgroundColor = '#FFBB2C';
+                li.style.borderRadius = '5px';
+                li.style.border = '1px solid #854836';
+
+                li.innerHTML = `<strong style="color: #854836">${concepto.termino}:</strong> ${concepto.definicion}`;
+                ul.appendChild(li);
+            });
+
+            listaConceptos.appendChild(ul);
+        }
+
+        function mostrarResultadosPorDefecto() {
+            resultadoTiempo.textContent = '01:30';
+            resultadoErrores.textContent = '3';
+            resultadoCalificacion.textContent = '75/100';
+            resultadoFecha.textContent = new Date().toLocaleDateString();
+            tiempoPromedio.textContent = '7.5s';
+            eficiencia.textContent = '100%';
+            mostrarConceptosEjemplo();
+        }
+
+        document.addEventListener('DOMContentLoaded', cargarResultados);
+    </script>
+</body>
+</html>
+
+
