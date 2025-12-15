@@ -8,7 +8,7 @@
 <body>
     <header>
         <h1>Memorama de diseño web</h1>
-        <p class="subtitulo">Encuentra los pares (Termino -> Definicion)</p>
+        <p class="subtitulo">Encuentra los pares (Termino > Definicion)</p>
     </header>
     <div class="contenedor-principal">
         <div class="panel-estadisticas">
@@ -194,44 +194,16 @@
                 }
 
                 const data = await response.json();
-                return data.Cartas || [];
+                if (!data || !data.cartas || data.cartas.length === 0) {
+                    throw new Error('No hay cartas disponibles en la base de datos');
+                }
+
+                return data.cartas; 
             } catch (error) {
-                console.error('Error:', error);
-                return crearCartasEjemplo();
+                console.error('Error al obtener cartas:', error);
+                alert('No se pudieron cargar las cartas. Verifica que la API esté funcionando.');
+                return []; 
             }
-        }
-
-        function crearCartasEjemplo() {
-            const conceptosEjemplo = [
-                { id: 1, termino: '<html>', definicion: 'Elemento raíz del documento HTML' },
-                { id: 2, termino: '<head>', definicion: 'Contiene metadatos del documento' },
-                { id: 3, termino: '<body>', definicion: 'Contiene el contenido visible' },
-                { id: 4, termino: '<h1>', definicion: 'Encabezado de nivel 1' },
-                { id: 5, termino: '<p>', definicion: 'Define un párrafo' },
-                { id: 6, termino: '<a>', definicion: 'Crea un hipervínculo' }
-            ];
-
-            const cartasEjemplo = [];
-
-            conceptosEjemplo.forEach(function (concepto) {
-                cartasEjemplo.push({
-                    conceptId: concepto.id,
-                    cardId: `T_${concepto.id}`,
-                    tipo: 'termino',
-                    contenido: concepto.termino,
-                    categoria: 'ejemplo'
-                });
-
-                cartasEjemplo.push({
-                    conceptId: concepto.id,
-                    cardId: `D_${concepto.id}`,
-                    tipo: 'definicion',
-                    contenido: concepto.definicion,
-                    categoria: 'ejemplo'
-                });
-            });
-
-            return cartasEjemplo.sort(function () { return Math.random() - 0.5; });
         }
 
         async function inicializarTablero() {
@@ -240,12 +212,15 @@
             mensajeCarga.className = 'mensaje-carga';
             mensajeCarga.textContent = 'Cargando cartas...';
             tablero.appendChild(mensajeCarga);
+
             cartas = await obtenerCartas();
             tablero.innerHTML = '';
 
             if (!cartas || cartas.length === 0) {
-                console.error('No se pudieron cargar cartas');
-                cartas = crearCartasEjemplo();
+                console.error('No se pudieron cargar cartas de la base de datos');
+                tablero.innerHTML = '<div class="mensaje-error">No hay cartas disponibles. Contacta al administrador.</div>';
+                btnIniciar.disabled = true;
+                return;
             }
 
             totalPares = cartas.length / 2;
